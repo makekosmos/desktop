@@ -3,8 +3,9 @@
   "private": true,
   "scripts": {
     "check:channel": "node scripts/check-channel-contract.mjs",
-    "check": "bun run check:channel",
+    "check": "pnpm run check:channel",
+    "test:package-manager": "node scripts/check-pnpm-no-lock.mjs",
     "prepare": "git config core.hooksPath .githooks"
   },
-  "packageManager": "bun@1.3.14"
+  "packageManager": "pnpm@12.4.1"
 }
