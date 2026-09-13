@@ -20,7 +20,7 @@ assert.deepEqual(manifest, {
   verification: {
     repository: "makekosmos/cortex",
     path: "desktop/scripts/verify-release-channel.mjs",
-    command: "bun desktop/scripts/verify-release-channel.mjs",
+    command: "pnpm exec node desktop/scripts/verify-release-channel.mjs",
   },
 });
 
@@ -32,7 +32,7 @@ for (const marker of [
   "Release unit: one Kosmos Desktop release",
   "does not accept product source",
   "cortex/desktop/scripts/verify-release-channel.mjs",
-  "bun run check",
+  "pnpm run check",
 ]) {
   assert.ok(readme.includes(marker), `README is missing: ${marker}`);
 }

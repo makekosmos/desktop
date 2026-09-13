@@ -14,6 +14,6 @@
   "verification": {
     "repository": "makekosmos/cortex",
     "path": "desktop/scripts/verify-release-channel.mjs",
-    "command": "bun desktop/scripts/verify-release-channel.mjs"
+    "command": "pnpm exec node desktop/scripts/verify-release-channel.mjs"
   }
 }
