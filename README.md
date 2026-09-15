@@ -20,4 +20,7 @@ build, sign, publish, or re-verify installer bytes.
 Run `bun run check` before pushing channel-governance changes. Installation
 also configures the repository-owned pre-commit and pre-push hooks. The
 repository has no third-party package dependencies, so dependency audit is not
-applicable; CI instead runs the channel contract, secret scan, and Actionlint.
+applicable. Hosted GitHub Actions are disabled (KOS-76): the quality workflow
+(channel contract, secret scan, Actionlint) no longer runs on `push` or
+`pull_request` and is manual `workflow_dispatch` only. Done means `bun run
+check` and the local hooks pass; an absent or red hosted run is not a blocker.

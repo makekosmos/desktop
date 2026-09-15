@@ -1,8 +1,9 @@
 name: Quality
 
+# KOS-76: hosted CI is disabled. `bun run check` and the .githooks contracts
+# run locally and are authoritative; this workflow is manual dispatch only.
 on:
-  push:
-  pull_request:
+  workflow_dispatch:
 
 permissions:
   contents: read
