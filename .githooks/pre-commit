@@ -1,6 +1,11 @@
 #!/usr/bin/env sh
 set -eu
 
+# The gate must validate the blobs that will actually be recorded, never
+# replace-object substitutions: a `git replace` ref would otherwise let staged
+# content read as different bytes than what gets committed.
+export GIT_NO_REPLACE_OBJECTS=1
+
 if [ ! -f package.json ]; then
   echo "channel-contract gate unavailable: no package.json in this checkout" >&2
   exit 1
