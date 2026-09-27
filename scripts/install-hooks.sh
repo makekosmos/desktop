@@ -5,6 +5,13 @@
 # .githooks fails closed instead of silently skipping the gate.
 set -eu
 
+# GIT_DIR/GIT_WORK_TREE/GIT_COMMON_DIR leaking in from the environment would
+# retarget every git command below at a different repository: the shims and the
+# core.hooksPath cleanup would land in a foreign repo's git dir. Drop the
+# ambient context and anchor discovery at the checkout that owns this script.
+unset GIT_DIR GIT_WORK_TREE GIT_COMMON_DIR
+cd "$(dirname "$0")/.."
+
 common_dir=$(cd "$(git rev-parse --git-common-dir)" >/dev/null && pwd)
 hooks_dir="$common_dir/hooks"
 mkdir -p "$hooks_dir"
