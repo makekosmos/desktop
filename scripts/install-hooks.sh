@@ -13,8 +13,12 @@ for hook in pre-commit pre-push; do
   # An existing hook that is not one of our shims (user hooks, template hooks,
   # other tools) must not be silently overwritten: move it aside once and say
   # so. It is not chained because pre-push hooks consume stdin.
+  # Only a plain regular file can be our shim: grep on a FIFO or device blocks
+  # forever, and a marker-matching symlink would be rewritten through, which
+  # clobbers the target it points at instead of the hook path.
   if { [ -e "$hooks_dir/$hook" ] || [ -L "$hooks_dir/$hook" ]; } \
-      && ! grep -qF "channel-contract gate unavailable: .githooks/" "$hooks_dir/$hook" 2>/dev/null; then
+      && ! { [ -f "$hooks_dir/$hook" ] && [ ! -L "$hooks_dir/$hook" ] \
+        && grep -qF "channel-contract gate unavailable: .githooks/" "$hooks_dir/$hook" 2>/dev/null; }; then
     if [ -e "$hooks_dir/$hook.pre-kosmos" ] || [ -L "$hooks_dir/$hook.pre-kosmos" ]; then
       echo "install-hooks: foreign $hook hook exists but $hook.pre-kosmos is already taken" >&2
       echo "Resolve it manually under $hooks_dir, then re-run." >&2

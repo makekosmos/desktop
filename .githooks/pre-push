@@ -1,6 +1,11 @@
 #!/usr/bin/env sh
 set -eu
 
+# The gate must validate the objects that will actually be pushed, never
+# replace-object substitutions: a `git replace` ref would otherwise let a
+# pushed commit read as a different tree than the one the remote stores.
+export GIT_NO_REPLACE_OBJECTS=1
+
 if [ ! -f package.json ]; then
   echo "channel-contract gate unavailable: no package.json in this checkout" >&2
   exit 1
@@ -10,6 +15,17 @@ while read -r local_ref local_sha remote_ref remote_sha; do
   if [ "$local_sha" = "$zero" ]; then
     continue
   fi
+  # Only branches and tags are contract-governed destinations; local_ref is
+  # the unresolved refspec source (e.g. "HEAD"), so key off remote_ref.
+  # Auxiliary namespaces (refs/notes/*, refs/replace/*, ...) hold commits that
+  # can never contain contract files.
+  case $remote_ref in
+    refs/heads/* | refs/tags/*) ;;
+    *) continue ;;
+  esac
+  # Non-commit objects (e.g. tags to blobs or trees) cannot carry contract
+  # files; extracting them would hard-fail the push for no gain.
+  git cat-file -e "$local_sha^{commit}" 2>/dev/null || continue
   tmp=$(mktemp -d)
   trap 'rm -rf "$tmp"' EXIT
   for file in release-channel.json README.md; do
