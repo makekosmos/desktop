@@ -1,8 +1,9 @@
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 
-const manifest = JSON.parse(await readFile("release-channel.json", "utf8"));
-const readme = await readFile("README.md", "utf8");
+const root = new URL("../", import.meta.url);
+const manifest = JSON.parse(await readFile(new URL("release-channel.json", root), "utf8"));
+const readme = await readFile(new URL("README.md", root), "utf8");
 
 assert.deepEqual(manifest, {
   schemaVersion: 1,
