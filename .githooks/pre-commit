@@ -1,3 +1,9 @@
 #!/usr/bin/env sh
 set -eu
-bun run check
+
+tmp=$(mktemp -d)
+trap 'rm -rf "$tmp"' EXIT
+for file in release-channel.json README.md; do
+  git show ":$file" > "$tmp/$file"
+done
+bun run check:channel -- "$tmp"

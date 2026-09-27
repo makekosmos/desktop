@@ -1,7 +1,11 @@
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
+import { resolve } from "node:path";
+import { pathToFileURL } from "node:url";
 
-const root = new URL("../", import.meta.url);
+const root = process.argv[2]
+  ? pathToFileURL(resolve(process.argv[2]) + "/")
+  : new URL("../", import.meta.url);
 const manifest = JSON.parse(await readFile(new URL("release-channel.json", root), "utf8"));
 const readme = await readFile(new URL("README.md", root), "utf8");
 

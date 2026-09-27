@@ -1,3 +1,17 @@
 #!/usr/bin/env sh
 set -eu
-bun run check
+
+zero=0000000000000000000000000000000000000000
+while read -r local_ref local_sha remote_ref remote_sha; do
+  if [ "$local_sha" = "$zero" ]; then
+    continue
+  fi
+  tmp=$(mktemp -d)
+  trap 'rm -rf "$tmp"' EXIT
+  for file in release-channel.json README.md; do
+    git show "$local_sha:$file" > "$tmp/$file"
+  done
+  bun run check:channel -- "$tmp"
+  rm -rf "$tmp"
+  trap - EXIT
+done
