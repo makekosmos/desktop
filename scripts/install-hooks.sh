@@ -5,17 +5,49 @@
 # .githooks fails closed instead of silently skipping the gate.
 set -eu
 
-# GIT_DIR/GIT_WORK_TREE/GIT_COMMON_DIR leaking in from the environment would
-# retarget every git command below at a different repository: the shims and the
-# core.hooksPath cleanup would land in a foreign repo's git dir. Drop the
-# ambient context and anchor discovery at the checkout that owns this script.
-unset GIT_DIR GIT_WORK_TREE GIT_COMMON_DIR
+# Ambient GIT_* variables can retarget every git command below:
+# GIT_DIR/GIT_WORK_TREE/GIT_COMMON_DIR point at a different repository, the
+# config-source family (GIT_CONFIG, GIT_CONFIG_GLOBAL, GIT_CONFIG_SYSTEM,
+# GIT_CONFIG_NOSYSTEM, GIT_CONFIG_PARAMETERS, GIT_CONFIG_COUNT with
+# GIT_CONFIG_KEY_*/GIT_CONFIG_VALUE_*) can inject or hide config values, and
+# GIT_CEILING_DIRECTORIES/GIT_DISCOVERY_ACROSS_FILESYSTEM steer repository
+# discovery. A leaked redirect would either write the shims into a foreign
+# git dir or hide a real core.hooksPath from the shadow check below, so the
+# gate would silently never run. Drop the whole family so the installer sees
+# the repository and configuration that a plain `git commit` later will.
+_git_vars=$(env | sed -n 's/^\(GIT_[A-Za-z0-9_]*\)=.*/\1/p')
+for _v in $_git_vars; do
+  unset "$_v"
+done
+unset _v _git_vars
+# An exported CDPATH is consulted by `cd` for relative operands and would
+# silently redirect the script-dir anchor below into a foreign directory.
+unset CDPATH
 cd "$(dirname "$0")/.."
+
+# There is nothing safe to install into when this copy is not itself a
+# worktree root. Tarball/vendor extracts and dependency checkouts are nested
+# inside an enclosing repository's worktree (or outside any repository): the
+# enclosing repo's hooks must not be touched — the shims resolve
+# .githooks/<hook> under --show-toplevel, so planted into a parent repo they
+# would block every commit there with "gate unavailable". Fail soft so
+# `bun install` still succeeds in those layouts.
+if [ "$(git rev-parse --is-inside-work-tree 2>/dev/null)" != "true" ]; then
+  echo "install-hooks: not inside a git worktree; skipping hook install" >&2
+  exit 0
+fi
+if [ "$(cd "$(git rev-parse --show-toplevel)" && pwd -P)" != "$(pwd -P)" ]; then
+  echo "install-hooks: $(pwd -P) is nested inside worktree" \
+    "$(git rev-parse --show-toplevel), not a checkout root; skipping hook install" >&2
+  exit 0
+fi
 
 common_dir=$(cd "$(git rev-parse --git-common-dir)" >/dev/null && pwd)
 hooks_dir="$common_dir/hooks"
 mkdir -p "$hooks_dir"
 
+shim_tmp=
+trap '[ -z "$shim_tmp" ] || rm -f "$shim_tmp"' EXIT
 for hook in pre-commit pre-push; do
   # An existing hook that is not one of our shims (user hooks, template hooks,
   # other tools) must not be silently overwritten: move it aside once and say
@@ -34,7 +66,12 @@ for hook in pre-commit pre-push; do
     mv "$hooks_dir/$hook" "$hooks_dir/$hook.pre-kosmos"
     echo "install-hooks: preserved existing $hook hook as hooks/$hook.pre-kosmos" >&2
   fi
-  cat > "$hooks_dir/$hook" <<EOF
+  # Write via temp file + rename: `cat >` truncates the live shim first, so an
+  # interrupted install would leave a truncated hook that breaks every commit
+  # with a shell syntax error (or lets a concurrent commit read a partial
+  # script). Same-directory rename is atomic.
+  shim_tmp="$hooks_dir/.kosmos-shim.$$.$hook"
+  cat > "$shim_tmp" <<EOF
 #!/usr/bin/env sh
 set -eu
 repo_hook="\$(git rev-parse --show-toplevel)/.githooks/$hook"
@@ -44,7 +81,9 @@ fi
 echo "channel-contract gate unavailable: .githooks/$hook missing from this checkout" >&2
 exit 1
 EOF
-  chmod +x "$hooks_dir/$hook"
+  chmod +x "$shim_tmp"
+  mv -f "$shim_tmp" "$hooks_dir/$hook"
+  shim_tmp=
 done
 
 # A relative core.hooksPath (e.g. ".githooks" from earlier installs) resolves
